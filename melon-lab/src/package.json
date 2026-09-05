@@ -1,0 +1,10 @@
+{
+  "name": "melon-fluid-lab",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "build": "node build.mjs"
+  }
+}
