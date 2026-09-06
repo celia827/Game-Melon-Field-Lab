@@ -31,13 +31,13 @@ function overlap(a,b){
   return {depth:Math.max(0,depth),nx,ny};
 }
 export class World{
-  constructor(onMerge=()=>{}){this.bodies=[];this.time=0;this.nextId=1;this.mode='fluid';this.tilt=0;this.onMerge=onMerge;}
+  constructor(onMerge=()=>{}){this.bodies=[];this.time=0;this.nextId=1;this.mode='fluid';this.tilt=0;this.gravityScale=1;this.onMerge=onMerge;}
   add(type,x,y,vx=0,vy=0){const r=TYPES[type].r;const p=Array.from({length:N},(_,i)=>{const angle=TAU*i/N,px=x+Math.cos(angle)*r,py=y+Math.sin(angle)*r;return{x:px,y:py,px:px-vx/120,py:py-vy/120};});const body={id:this.nextId++,type,r,p,x,y,age:0,area:areaOf(p),danger:0};this.bodies.push(body);return body;}
-  reset(seed=true){this.bodies=[];this.time=0;this.tilt=0;if(seed){this.add(4,91,BOUNDS.bottom-50);this.add(3,191,BOUNDS.bottom-40);this.add(5,305,BOUNDS.bottom-61);this.add(2,413,BOUNDS.bottom-32);this.add(1,255,BOUNDS.bottom-137);}}
+  reset(seed=true){this.bodies=[];this.time=0;this.tilt=0;this.gravityScale=1;if(seed){this.add(4,91,BOUNDS.bottom-50);this.add(3,191,BOUNDS.bottom-40);this.add(5,305,BOUNDS.bottom-61);this.add(2,413,BOUNDS.bottom-32);this.add(1,255,BOUNDS.bottom-137);}}
   stir(){for(const b of this.bodies)for(const p of b.p){const vx=(b.x-250)*-1.5+(b.y-430)*1.9;const vy=-250-(Math.random()*100);p.px=p.x-vx/120;p.py=p.y-vy/120;}}
   step(dt=1/120){
     const mode=MODES[this.mode];this.time+=dt;
-    for(const b of this.bodies){b.age+=dt;for(const p of b.p){const vx=clamp((p.x-p.px)*mode.damping,-5,5),vy=clamp((p.y-p.py)*mode.damping,-5,5);p.px=p.x;p.py=p.y;p.x+=vx+this.tilt*760*dt*dt;p.y+=vy+980*dt*dt;}}
+    for(const b of this.bodies){b.age+=dt;for(const p of b.p){const vx=clamp((p.x-p.px)*mode.damping,-5,5),vy=clamp((p.y-p.py)*mode.damping,-5,5);p.px=p.x;p.py=p.y;p.x+=vx+this.tilt*760*dt*dt;p.y+=vy+980*this.gravityScale*dt*dt;}}
     const locked=new Set(),merges=[];
     for(let iteration=0;iteration<6;iteration++){
       for(const b of this.bodies){

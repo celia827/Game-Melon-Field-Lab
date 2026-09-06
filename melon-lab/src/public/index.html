@@ -40,6 +40,16 @@
 <h2>改变一点物理</h2>
 <div class="modes" role="group" aria-label="水果流动性"><button data-mode="jelly" aria-pressed="false">果冻</button><button data-mode="fluid" aria-pressed="true">半流体</button><button data-mode="juice" aria-pressed="false">果汁</button></div>
 <p id="mode-desc">柔软变形，缓缓流动</p>
+<section class="mission" aria-label="当前实验委托">
+<div class="mission-heading"><h3>实验委托</h3><span id="mission-kind">进行中</span></div>
+<p id="mission-text">合成目标水果</p>
+<div class="mission-progress"><progress id="mission-progress" max="1" value="0"></progress><span id="mission-value">0 / 1</span></div>
+<p id="mission-reward">完成奖励：+100 分 · +15 能量</p>
+</section>
+<section class="ability" aria-label="实验能力">
+<div class="ability-heading"><span>实验瓶</span><strong id="lab-charge">0 / 3</strong></div>
+<button class="ability-button" id="gravity-button" disabled>减重剂 <small id="gravity-status">充能中</small></button>
+</section>
 <button class="stir" id="stir"><svg><use href="#i-stir"/></svg>搅动果池</button><p class="energy-cost">消耗 30 能量</p>
 <div class="energy-row"><label for="energy">能量</label><progress id="energy" max="100" value="100">100</progress><span><b id="energy-value">100</b> / 100</span></div>
 <div class="rules"><p><span class="rule-bubbles" aria-hidden="true"><i></i><i></i></span>同类相遇，融合升级</p><p><svg aria-hidden="true"><use href="#i-stir"/></svg>挤压变形，填满缝隙</p><p><span class="rule-line" aria-hidden="true"></span>别让水果越过虚线</p></div>

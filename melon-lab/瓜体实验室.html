@@ -10,7 +10,7 @@
 .squiggle{height:14px;margin:10px 0 23px;overflow:visible}.squiggle svg{display:block;width:77px;height:14px;fill:none;stroke:#a594e6;stroke-width:3;stroke-linecap:round}.evolution .squiggle svg{width:60px;height:12px}
 
 h1{font-size:clamp(42px,3.6vw,54px);white-space:nowrap}#game.pointer-focused:focus-visible{outline:none}
-</style>
+.mission,.ability{border:1px solid var(--line);border-radius:15px;background:#ffffff40;padding:12px 14px;margin:0 0 13px}.mission-heading,.ability-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}.mission h3{font-size:15px;margin:0;font-weight:700}.mission-heading span{font-size:11px;color:#8b7cc2}.mission p{margin:8px 0;color:#6d6682;font-size:13px;line-height:1.5}.mission-progress{display:flex;align-items:center;gap:8px}.mission-progress progress{height:8px}.mission-progress span{font-size:11px;color:#7160a2;white-space:nowrap}.mission-reward{font-size:11px!important;color:#8a7ba7!important;margin-bottom:0!important}.ability{padding:10px 14px}.ability-heading{font-size:13px;color:#6d6682;margin-bottom:8px}.ability-heading strong{color:#7160b8;font-size:12px}.ability-button{width:100%;border:1px solid #b3a7dd;border-radius:11px;background:#eeeaff;color:#7160b8;padding:8px;font-size:13px;font-weight:600}.ability-button:not(:disabled){background:linear-gradient(170deg,#a18bed,#7762d1);color:#fff;box-shadow:0 3px 8px #9480d824}.ability-button small{font-size:10px;font-weight:400;margin-left:5px}.ability-button:disabled{opacity:.7}@media(max-width:1100px){.mission,.ability{margin-bottom:0}.mission{grid-column:1}.ability{grid-column:2;grid-row:3}.mission h3{font-size:13px}.mission p{font-size:12px;margin:5px 0}.ability{padding:8px 12px}}@media(max-width:640px){.mission,.ability{margin:0;padding:7px 9px;border-radius:11px}.mission h3{font-size:11px}.mission-heading span,.mission p,.ability-heading{font-size:9px}.mission p{margin:3px 0}.mission-reward{display:none}.mission-progress progress{height:6px}.mission-progress span{font-size:9px}.ability-button{padding:6px;font-size:11px;border-radius:9px}.ability-button small{font-size:9px}}</style>
 </head>
 <body>
 <svg class="symbols" xmlns="http://www.w3.org/2000/svg"><defs>
@@ -45,6 +45,16 @@ h1{font-size:clamp(42px,3.6vw,54px);white-space:nowrap}#game.pointer-focused:foc
 <h2>改变一点物理</h2>
 <div class="modes" role="group" aria-label="水果流动性"><button data-mode="jelly" aria-pressed="false">果冻</button><button data-mode="fluid" aria-pressed="true">半流体</button><button data-mode="juice" aria-pressed="false">果汁</button></div>
 <p id="mode-desc">柔软变形，缓缓流动</p>
+<section class="mission" aria-label="当前实验委托">
+<div class="mission-heading"><h3>实验委托</h3><span id="mission-kind">进行中</span></div>
+<p id="mission-text">合成目标水果</p>
+<div class="mission-progress"><progress id="mission-progress" max="1" value="0"></progress><span id="mission-value">0 / 1</span></div>
+<p id="mission-reward">完成奖励：+100 分 · +15 能量</p>
+</section>
+<section class="ability" aria-label="实验能力">
+<div class="ability-heading"><span>实验瓶</span><strong id="lab-charge">0 / 3</strong></div>
+<button class="ability-button" id="gravity-button" disabled>减重剂 <small id="gravity-status">充能中</small></button>
+</section>
 <button class="stir" id="stir"><svg><use href="#i-stir"/></svg>搅动果池</button><p class="energy-cost">消耗 30 能量</p>
 <div class="energy-row"><label for="energy">能量</label><progress id="energy" max="100" value="100">100</progress><span><b id="energy-value">100</b> / 100</span></div>
 <div class="rules"><p><span class="rule-bubbles" aria-hidden="true"><i></i><i></i></span>同类相遇，融合升级</p><p><svg aria-hidden="true"><use href="#i-stir"/></svg>挤压变形，填满缝隙</p><p><span class="rule-line" aria-hidden="true"></span>别让水果越过虚线</p></div>
@@ -89,13 +99,13 @@ function overlap(a,b){
   return {depth:Math.max(0,depth),nx,ny};
 }
 class World{
-  constructor(onMerge=()=>{}){this.bodies=[];this.time=0;this.nextId=1;this.mode='fluid';this.tilt=0;this.onMerge=onMerge;}
+  constructor(onMerge=()=>{}){this.bodies=[];this.time=0;this.nextId=1;this.mode='fluid';this.tilt=0;this.gravityScale=1;this.onMerge=onMerge;}
   add(type,x,y,vx=0,vy=0){const r=TYPES[type].r;const p=Array.from({length:N},(_,i)=>{const angle=TAU*i/N,px=x+Math.cos(angle)*r,py=y+Math.sin(angle)*r;return{x:px,y:py,px:px-vx/120,py:py-vy/120};});const body={id:this.nextId++,type,r,p,x,y,age:0,area:areaOf(p),danger:0};this.bodies.push(body);return body;}
-  reset(seed=true){this.bodies=[];this.time=0;this.tilt=0;if(seed){this.add(4,91,BOUNDS.bottom-50);this.add(3,191,BOUNDS.bottom-40);this.add(5,305,BOUNDS.bottom-61);this.add(2,413,BOUNDS.bottom-32);this.add(1,255,BOUNDS.bottom-137);}}
+  reset(seed=true){this.bodies=[];this.time=0;this.tilt=0;this.gravityScale=1;if(seed){this.add(4,91,BOUNDS.bottom-50);this.add(3,191,BOUNDS.bottom-40);this.add(5,305,BOUNDS.bottom-61);this.add(2,413,BOUNDS.bottom-32);this.add(1,255,BOUNDS.bottom-137);}}
   stir(){for(const b of this.bodies)for(const p of b.p){const vx=(b.x-250)*-1.5+(b.y-430)*1.9;const vy=-250-(Math.random()*100);p.px=p.x-vx/120;p.py=p.y-vy/120;}}
   step(dt=1/120){
     const mode=MODES[this.mode];this.time+=dt;
-    for(const b of this.bodies){b.age+=dt;for(const p of b.p){const vx=clamp((p.x-p.px)*mode.damping,-5,5),vy=clamp((p.y-p.py)*mode.damping,-5,5);p.px=p.x;p.py=p.y;p.x+=vx+this.tilt*760*dt*dt;p.y+=vy+980*dt*dt;}}
+    for(const b of this.bodies){b.age+=dt;for(const p of b.p){const vx=clamp((p.x-p.px)*mode.damping,-5,5),vy=clamp((p.y-p.py)*mode.damping,-5,5);p.px=p.x;p.py=p.y;p.x+=vx+this.tilt*760*dt*dt;p.y+=vy+980*this.gravityScale*dt*dt;}}
     const locked=new Set(),merges=[];
     for(let iteration=0;iteration<6;iteration++){
       for(const b of this.bodies){
@@ -130,29 +140,31 @@ class World{
 return {World,TYPES,MODES,BOUNDS};})();
 const $=id=>document.getElementById(id),canvas=$('game'),ctx=canvas.getContext('2d');
 const W=500,H=600,N=18,TAU=Math.PI*2,reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
-let score=0,best=0,energy=100,aim=250,current=0,next=0,cooldown=0,paused=false,ended=false,muted=true,audio,loaded=false,hasWon=false,toastUntil=0,heldTilt=0,combo=0,lastMerge=-10;
+let score=0,best=0,energy=100,aim=250,current=0,next=0,cooldown=0,paused=false,ended=false,muted=true,audio,loaded=false,hasWon=false,toastUntil=0,heldTilt=0,combo=0,lastMerge=-10,mission=null,missionCharge=0,gravityUntil=0,missionTimer=0;
 let effects=[],ripples=[],sprites=[],last=0,accumulator=0,uiClock=0;
 const keys=new Set(),dialog=$('dialog');
 try{best=Math.max(0,Number(localStorage.getItem('melon-lab-best'))||0);}catch{}
 $('best').textContent=best;
 function tone(frequency=420,length=.09){if(muted)return;try{audio??=new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume().catch(()=>{});const oscillator=audio.createOscillator(),gain=audio.createGain();oscillator.type='sine';oscillator.frequency.setValueAtTime(frequency,audio.currentTime);oscillator.frequency.exponentialRampToValueAtTime(frequency*.55,audio.currentTime+length);gain.gain.setValueAtTime(.11,audio.currentTime);gain.gain.exponentialRampToValueAtTime(.001,audio.currentTime+length);oscillator.connect(gain).connect(audio.destination);oscillator.start();oscillator.stop(audio.currentTime+length);}catch{}}
 function toast(text){$('toast').textContent=text;$('toast').classList.add('visible');toastUntil=performance.now()+1800;}
-function syncUI(){ $('score').textContent=score;$('best').textContent=best;$('energy').value=energy;$('energy-value').textContent=Math.floor(energy);$('stir').disabled=energy<30||ended||paused;$('game').dataset.fruits=world.bodies.length;$('game').dataset.phase=ended?'ended':paused?'paused':'playing';}
+function syncUI(){ $('score').textContent=score;$('best').textContent=best;$('energy').value=energy;$('energy-value').textContent=Math.floor(energy);$('stir').disabled=energy<30||ended||paused;if(mission){$('mission-kind').textContent=mission.done?'已完成':'进行中';$('mission-text').textContent=mission.text;$('mission-progress').max=mission.target;$('mission-progress').value=Math.min(mission.progress,mission.target);$('mission-value').textContent=`${Math.min(mission.progress,mission.target)} / ${mission.target}`;}$('lab-charge').textContent=`${missionCharge} / 3`;const ready=missionCharge>=3&&!gravityUntil;$('gravity-button').disabled=!ready||ended||paused;$('gravity-status').textContent=gravityUntil?`${Math.ceil(Math.max(0,gravityUntil-world.time))} 秒`:(ready?'可使用':'充能中');$('game').dataset.fruits=world.bodies.length;$('game').dataset.phase=ended?'ended':paused?'paused':'playing';}
 function showDialog(title,body,button,action,closable=true){paused=true;keys.clear();heldTilt=0;$('dialog-title').textContent=title;$('dialog-body').innerHTML=body;$('dialog-action').textContent=button;$('dialog-action').onclick=()=>{dialog.close();action();};$('dialog-close').hidden=!closable;if(!dialog.open)dialog.showModal();syncUI();}
 function resume(){paused=false;$('pause').querySelector('span').textContent='暂停';$('pause').setAttribute('aria-label','暂停');syncUI();}
-function finish(){if(ended)return;ended=true;showDialog('果池满了，休息一下',`这一次的合成分数<strong>${score}</strong><p>试试切换流动性，给大水果腾出一点空间。</p>`,'再来一池',reset,false);}
+function finish(){if(ended)return;ended=true;showDialog('果池满了，休息一下',`这一次的合成分数<strong>${score}</strong><p>试试切换流动性，给大水果腾出一点空间。</p>`,'再来一池',reset,false);}function newMission(){const choices=[{kind:'合成目标',text:'合成一个柑橘',target:1,check:e=>e.type===2},{kind:'物理实验',text:'在果汁模式下完成 2 次融合',target:2,check:e=>world.mode==='juice'},{kind:'连锁实验',text:'连续完成 2 次融合',target:2,check:e=>combo>=2}];return {...choices[Math.floor(Math.random()*choices.length)],progress:0,done:false};}function completeMission(){if(!mission||mission.done)return;mission.done=true;score+=100;energy=Math.min(100,energy+15);missionCharge=Math.min(3,missionCharge+1);if(score>best){best=score;try{localStorage.setItem('melon-lab-best',String(best));}catch{}}toast('委托完成！实验瓶充能 +1');tone(620,.16);syncUI();missionTimer=window.setTimeout(()=>{if(!ended){mission=newMission();syncUI();toast('新的实验委托已到达。');}},1400);}
 const world=new World(event=>{
   combo=world.time-lastMerge<1.2?combo+1:1;lastMerge=world.time;const bonus=event.points*Math.min(combo,4);score+=bonus;energy=Math.min(100,energy+8);
   if(score>best){best=score;try{localStorage.setItem('melon-lab-best',String(best));}catch{}}
   effects.push({x:event.x,y:event.y,text:`+${bonus}${combo>1?' · '+combo+' 连融':''}`,life:1.2});ripples.push({x:event.x,y:event.y,life:.6,r:TYPES[event.type].r,color:TYPES[event.type].color});tone(330+event.type*80,.16);
   const step=document.querySelector(`[data-fruit="${event.type}"]`);if(step){step.classList.remove('new');void step.offsetWidth;step.classList.add('new');}
+  if(mission&&!mission.done&&mission.check(event)){mission.progress++;if(mission.progress>=mission.target)completeMission();}
   if(event.type===8&&!hasWon){hasWon=true;queueMicrotask(()=>{if(ended)return;showDialog('一颗会流动的大西瓜！',`你把柔软的水果，融成了夏天。<strong>${score}</strong><p>继续合成两颗西瓜，可以释放大片空间。</p>`,'继续实验',resume);});}
   syncUI();
 });
-function reset(){world.reset();world.mode=document.querySelector('[data-mode][aria-pressed=true]').dataset.mode;score=0;energy=100;current=0;next=0;cooldown=0;aim=250;ended=false;hasWon=false;paused=false;effects=[];ripples=[];combo=0;lastMerge=-10;keys.clear();heldTilt=0;if(dialog.open)dialog.close();updateNext();resume();$('aim-tip').textContent='移动瞄准 · 点击投放';}
+function reset(){world.reset();world.mode=document.querySelector('[data-mode][aria-pressed=true]').dataset.mode;score=0;energy=100;current=0;next=0;cooldown=0;aim=250;ended=false;hasWon=false;paused=false;effects=[];ripples=[];combo=0;lastMerge=-10;mission=newMission();missionCharge=0;gravityUntil=0;if(missionTimer)clearTimeout(missionTimer);missionTimer=0;keys.clear();heldTilt=0;if(dialog.open)dialog.close();updateNext();resume();$('aim-tip').textContent='移动瞄准 · 点击投放';}
 function pickFruit(){return Math.floor(Math.random()**1.65*4);}
 function drop(){if(!loaded||paused||ended||world.time<cooldown)return;const r=TYPES[current].r;aim=Math.max(BOUNDS.left+r+3,Math.min(BOUNDS.right-r-3,aim));world.add(current,aim,65,world.tilt*20,70);current=next;next=pickFruit();cooldown=world.time+.42;updateNext();tone(240,.06);syncUI();}
 function stir(){if(!loaded||paused||ended||energy<30)return;energy-=30;world.stir();ripples.push({x:250,y:430,life:1,r:130,color:'#9b85db'});tone(150,.3);toast('轻轻搅一搅，好事会相遇。');syncUI();}
+function useGravity(){if(!loaded||paused||ended||missionCharge<3||gravityUntil)return;missionCharge=0;gravityUntil=world.time+8;world.gravityScale=.5;toast('减重剂生效，果池变轻了。');tone(520,.22);syncUI();}
 function updateNext(){if(!loaded)return;const c=$('next-fruit').getContext('2d');c.clearRect(0,0,144,144);c.drawImage(sprites[next],8,8,128,128);$('next-fruit').setAttribute('aria-label',`下一颗水果：${TYPES[next].name}`);}
 function glassPath(){ctx.beginPath();ctx.moveTo(31,49);ctx.lineTo(19,49);ctx.quadraticCurveTo(14,49,14,59);ctx.lineTo(14,548);ctx.quadraticCurveTo(14,590,55,590);ctx.lineTo(445,590);ctx.quadraticCurveTo(486,590,486,548);ctx.lineTo(486,59);ctx.quadraticCurveTo(486,49,469,49);}
 function drawGlass(front=false){
@@ -184,7 +196,7 @@ function render(){
   for(const e of effects){ctx.save();ctx.globalAlpha=Math.min(1,e.life*2);ctx.font='600 21px "Avenir Next","PingFang SC",sans-serif';ctx.textAlign='center';ctx.fillStyle='#7563af';ctx.strokeStyle='#f7f3ff';ctx.lineWidth=4;ctx.strokeText(e.text,e.x,e.y);ctx.fillText(e.text,e.x,e.y);ctx.restore();}
   if(danger>0){ctx.save();ctx.font='600 13px "PingFang SC",sans-serif';ctx.textAlign='center';ctx.fillStyle='#d95970';ctx.fillText(`快满了！${Math.max(1,Math.ceil(3-danger))} 秒`,250,104);ctx.restore();}
 }
-function frame(now){const dt=Math.min((now-last)/1000||0, .065);last=now;if(loaded&&!paused&&!ended&&!document.hidden){accumulator+=dt;world.tilt=heldTilt||(keys.has('a')?-1:0)+(keys.has('d')?1:0);if(keys.has('arrowleft'))aim-=250*dt;if(keys.has('arrowright'))aim+=250*dt;aim=Math.max(45,Math.min(455,aim));while(accumulator>=1/120){world.step(1/120);accumulator-=1/120;}energy=Math.min(100,energy+dt*2.3);for(const e of effects){e.life-=dt;e.y-=dt*27;}effects=effects.filter(e=>e.life>0);for(const e of ripples)e.life-=dt;ripples=ripples.filter(e=>e.life>0);if(world.bodies.some(b=>b.danger>=3))finish();}else accumulator=0;uiClock+=dt;if(uiClock>.1){uiClock=0;syncUI();}if(now>toastUntil)$('toast').classList.remove('visible');render();requestAnimationFrame(frame);}
+function frame(now){const dt=Math.min((now-last)/1000||0, .065);last=now;if(loaded&&!paused&&!ended&&!document.hidden){accumulator+=dt;world.tilt=heldTilt||(keys.has('a')?-1:0)+(keys.has('d')?1:0);if(keys.has('arrowleft'))aim-=250*dt;if(keys.has('arrowright'))aim+=250*dt;aim=Math.max(45,Math.min(455,aim));while(accumulator>=1/120){world.step(1/120);accumulator-=1/120;}if(gravityUntil&&world.time>=gravityUntil){gravityUntil=0;world.gravityScale=1;toast('减重剂结束，重力恢复。')}energy=Math.min(100,energy+dt*2.3);for(const e of effects){e.life-=dt;e.y-=dt*27;}effects=effects.filter(e=>e.life>0);for(const e of ripples)e.life-=dt;ripples=ripples.filter(e=>e.life>0);if(world.bodies.some(b=>b.danger>=3))finish();}else accumulator=0;uiClock+=dt;if(uiClock>.1){uiClock=0;syncUI();}if(now>toastUntil)$('toast').classList.remove('visible');render();requestAnimationFrame(frame);}
 function pointerAim(event){const rect=canvas.getBoundingClientRect();const contentWidth=Math.min(rect.width,rect.height*W/H);const left=rect.left+(rect.width-contentWidth)/2;aim=(event.clientX-left)*W/contentWidth;}
 let pointer=null;
 canvas.addEventListener('pointerdown',e=>{e.preventDefault();if(pointer!==null)return;pointer=e.pointerId;canvas.setPointerCapture(e.pointerId);canvas.classList.add('pointer-focused');canvas.focus({preventScroll:true});pointerAim(e);});
@@ -195,10 +207,11 @@ document.addEventListener('keydown',e=>{if(dialog.open)return;canvas.classList.r
 document.addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));window.addEventListener('blur',()=>{keys.clear();heldTilt=0;pointer=null;});document.addEventListener('visibilitychange',()=>{keys.clear();heldTilt=0;last=performance.now();});
 document.querySelectorAll('[data-mode]').forEach(button=>button.addEventListener('click',()=>{world.mode=button.dataset.mode;document.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));$('mode-desc').textContent=MODES[world.mode].label;tone(250,.05);}));
 $('stir').addEventListener('click',stir);
+$('gravity-button').addEventListener('click',useGravity);
 $('sound').addEventListener('click',()=>{muted=!muted;$('sound').setAttribute('aria-pressed',String(!muted));$('sound').querySelector('span').textContent=muted?'静音':'声音';tone();});
 $('pause').addEventListener('click',()=>{if(ended)return;showDialog('让果冻歇一会儿','水果和时间都停在这里。','继续游戏',resume);});
 $('restart').addEventListener('click',()=>{if(score===0){reset();return;}showDialog('开始一池新的水果？','本局分数将清零，最佳分数会保留。','重新开始',reset);});
-$('help').addEventListener('click',()=>showDialog('一点物理，一点好运','<p>移动鼠标瞄准，点击投放。手机上拖动瞄准，松手投放。</p><p>同类水果碰到一起就会融合。切换「果冻 / 半流体 / 果汁」，感受不同弹性与流动性。</p><p>按 A / D 倾斜果池，按空格搅动。搅动消耗 30 能量；合成与等待可恢复。</p><p>水果稳定越过虚线 3 秒，本局结束。合出西瓜后可以继续挑战。</p>','开始实验',resume));
+$('help').addEventListener('click',()=>showDialog('一点物理，一点好运','<p>移动鼠标瞄准，点击投放。手机上拖动瞄准，松手投放。</p><p>同类水果碰到一起就会融合。切换「果冻 / 半流体 / 果汁」，感受不同弹性与流动性。</p><p>按 A / D 倾斜果池，按空格搅动。搅动消耗 30 能量；合成与等待可恢复。</p><p>完成实验委托可获得额外分数和能量。实验瓶充满 3 格后，使用减重剂让重力减半 8 秒。</p><p>水果稳定越过虚线 3 秒，本局结束。合出西瓜后可以继续挑战。</p>','开始实验',resume));
 $('dialog-close').addEventListener('click',()=>{dialog.close();resume();});dialog.addEventListener('cancel',e=>{if(ended){e.preventDefault();return;}resume();});
 function resize(){const ratio=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(W*ratio);canvas.height=Math.round(H*ratio);}
 resize();window.addEventListener('resize',resize);
