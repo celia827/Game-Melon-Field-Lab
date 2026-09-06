@@ -14,12 +14,20 @@ for(let i=0;i<120*240&&m.alive;i++){const next=m.gates.filter(g=>g.x>m.x-.83).so
 assert(m.alive);assert(m.score>100);assert(highest>1);assert(lowest<-1);
 m.reset(-1.3);assert(m.alive);assert.equal(m.score,0);assert.equal(m.y,0);assert.equal(m.gates.length,6);
 // New gameplay systems: deterministic routes, obstacle kinds, scoring feedback, and chapter completion.
-const kinds=['standard','moving','pulse','wind','standard','ring'];
+const kinds=['standard','moving','pulse','wind','bonus','standard'];
 const a=new FlightModel();const b=new FlightModel();a.reset(-3,{seed:90210,pattern:kinds});b.reset(-3,{seed:90210,pattern:kinds});
 assert.deepEqual(a.gates.map(g=>({kind:g.kind,center:g.baseCenter,phase:g.phase,wind:g.wind})),b.gates.map(g=>({kind:g.kind,center:g.baseCenter,phase:g.phase,wind:g.wind})));
 assert.deepEqual(a.gates.map(g=>g.kind),kinds);
 for(const kind of kinds){const t=new FlightModel();t.reset(-3,{pattern:[kind],seed:7});assert.equal(t.gates[0].kind,kind);}
+const bonusGate=new FlightModel();bonusGate.reset(-3,{pattern:['bonus'],seed:7});
+assert.equal(bonusGate.gates[0].items.length,2);assert(bonusGate.gates[0].gap>=bonusGate.rules.gapMin+.28);
+assert.deepEqual(bonusGate.gates[0].items.map(item=>item.offsetY),[-.42,.42]);
+bonusGate.gates[0].x=bonusGate.x-.9;bonusGate.gates[0].center=0;bonusGate.gates[0].baseCenter=0;bonusGate.gates[0].items.forEach(item=>item.collected=true);
+const bonusResult=bonusGate.step(1/120);assert(bonusResult.events.some(e=>e.type==='bonus'&&e.points===4));assert.equal(bonusGate.score,6);
+assert.equal(bonusGate.step(1/120).events.some(e=>e.type==='bonus'),false);
 const legacySplit=new FlightModel();legacySplit.reset(-3,{pattern:['split'],seed:7});assert.equal(legacySplit.gates[0].kind,'standard');assert.equal(legacySplit.gates[0].gap,1.52);assert.equal(legacySplit.gates[0].routeCenters,null);
+const legacyRing=new FlightModel();legacyRing.reset(-3,{pattern:['ring'],seed:7});assert.equal(legacyRing.gates[0].kind,'standard');assert.equal(legacyRing.gates[0].routeCenters,null);
+for(let chapter=0;chapter<4;chapter++){const t=new FlightModel();t.reset(-3,{mode:'chapter',chapter,seed:chapter+1});assert(t.gates.every(g=>!['split','ring'].includes(g.kind)));for(let i=0;i<1200&&t.alive;i++){t.step(1/120);assert(t.gates.every(g=>g.gap>=t.rules.gapMin));}const finishGate=new FlightModel();finishGate.reset(-3,{mode:'chapter',chapter,pattern:['standard']});finishGate.passedGates=finishGate.rules.gateCount-1;finishGate.gates[0].x=finishGate.x-.9;finishGate.y=finishGate.gates[0].center;assert(finishGate.step(1/120).events.some(e=>e.type==='complete'));}
 let p=new FlightModel();p.reset(-3,{pattern:['standard']});p.gates[0].x=p.x-.9;p.gates[0].baseCenter=0;p.gates[0].center=0;let pr=p.step(1/120);assert(pr.events.some(e=>e.type==='perfect'));assert.equal(p.score,2);assert.equal(p.combo,1);
 p=new FlightModel();p.reset(-3,{pattern:['standard']});p.gates.slice(0,3).forEach((g,i)=>{g.x=p.x-.9-i;g.baseCenter=0;g.center=0;});p.step(1/120);assert(p.combo>=3);assert(p.multiplier>=2);
 p=new FlightModel();p.reset(-3,{pattern:['standard']});p.gates.slice(0,5).forEach((g,i)=>{g.x=p.x-.9-i;g.baseCenter=0;g.center=0;});const focusEvents=p.step(1/120).events;assert.equal(p.shield,1);assert(focusEvents.some(e=>e.type==='shield-ready'));
