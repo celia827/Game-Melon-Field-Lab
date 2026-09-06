@@ -18,6 +18,7 @@ class FlightModel {
     const chapterConfig=this.runMode==='chapter'?CHAPTER_CONFIGS[this.chapter]:CHAPTER_CONFIGS.endless;
     this.config=options.config||chapterConfig||{};this.rules={...FALLBACK_RULES,...(this.config.physics||{}),...(options.physics||{})};
     this.pattern=options.pattern||this.rules.pattern||FALLBACK_RULES.pattern;
+    this.randomPattern=options.randomizePattern===true;
     this.passedGates=0;
     this.gates=Array.from({length:6},(_,i)=>this.makeGate(i,x+5.9+i*4.45,i===0?.1:this.nextCenter()));
   }
@@ -25,14 +26,24 @@ class FlightModel {
   makeGate(index,x,center) {
     // The former split layout put a second pillar in the playable opening.
     // Keep old patterns compatible, but always use the regular wide opening.
-    const requestedKind=this.pattern[index%this.pattern.length]||'standard';
-    const kind=['standard','moving','pulse','wind','bonus'].includes(requestedKind)?requestedKind:'standard';
+    const roll=this.random();
+    let randomKind=index<2?'standard':roll<.48?'standard':roll<.64?'bonus':roll<.78?'moving':roll<.9?'choice':roll<.96?'wind':'pulse';
+    const previous=this.gates?.find(g=>g.id===((index-1+6)%6));
+    if(previous&&previous.kind===randomKind&&['choice','moving','wind','pulse'].includes(randomKind))randomKind='standard';
+    const requestedKind=this.randomPattern?randomKind:(this.pattern[index%this.pattern.length]||'standard');
+    const kind=['standard','moving','pulse','wind','bonus','choice'].includes(requestedKind)?requestedKind:'standard';
     const regularGap=this.rules.gapMin+this.random()*Math.max(0,this.rules.gapMax-this.rules.gapMin);
     const gap=kind==='bonus'?Math.max(this.rules.gapMax,this.rules.gapMin+.28):regularGap;
     const gate={id:index,kind,x,center,baseCenter:center,routeCenters:null,phase:this.random()*Math.PI*2,
       passed:false,scored:false,bonusAwarded:false,gap,baseGap:gap,
       wind:kind==='wind'?((this.random()-.5)*2.2):0,items:[]};
-    if(kind==='bonus'){
+    if(kind==='choice'){
+      center=Math.max(-.35,Math.min(.35,center)); gate.center=center;gate.baseCenter=center;
+      gate.gap=Math.max(1.72,regularGap); gate.baseGap=gate.gap;
+      gate.routeCenters=[center-1.2,center+1.2];gate.routeGaps=[1.05,.95];
+      gate.items.push({type:'seed',x,y:gate.routeCenters[0],routeIndex:0,collected:false});
+      gate.items.push({type:'pollen',x,y:gate.routeCenters[1],routeIndex:1,collected:false});
+    }else if(kind==='bonus'){
       gate.items.push({type:'seed',x,y:center-.42,offsetY:-.42,collected:false});
       gate.items.push({type:'pollen',x,y:center+.42,offsetY:.42,collected:false});
     }else gate.items.push({type:index%9===7?'leaf':index%4===2?'pollen':'seed',x,y:center,collected:false});
@@ -44,10 +55,10 @@ class FlightModel {
     else if(g.kind==='pulse')g.gap=Math.max(this.rules.pulseMin,g.baseGap-this.rules.pulseAmount*(.5+.5*Math.sin(t*2.1+g.phase)))+1e-6;
     else g.center=g.baseCenter;
     if(g.kind==='wind')g.center=g.baseCenter+Math.sin(t*.9+g.phase)*this.rules.moveAmplitude;
-    for(const item of g.items){item.x=g.x;item.y=g.center+(item.offsetY||0);}
+    for(const item of g.items){item.x=g.x;item.y=g.kind==='choice'?(g.routeCenters?.[item.routeIndex]??g.center):g.center+(item.offsetY||0);}
   }
-  currentTargets(g) { return [g.center]; }
-  isSafe(g,y) { return this.currentTargets(g).some(c=>Math.abs(y-c)<=Math.max(.05,g.gap-.27)); }
+  currentTargets(g) { return g.routeCenters||[g.center]; }
+  isSafe(g,y) { return this.currentTargets(g).some((c,i)=>Math.abs(y-c)<=Math.max(.05,(g.routeGaps?.[i]||g.gap)-.27)); }
   flap() { if(this.alive)this.vy=this.rules.flap; }
   step(dt) {
     if(!this.alive)return {hit:false,passed:0,events:[]};
@@ -72,7 +83,7 @@ class FlightModel {
         if(dx*dx+dy*dy<.27*.27){if(this.invulnerable<=0&&!boundaryHit){if(this.shield){this.shield=0;this.invulnerable=.35;this.events.push({type:'shield',x:this.x,y:this.y});}else hit=true;}}
       }
     }
-    if(!hit)for(const g of this.gates){if(!g.passed&&g.x+.56<this.x-.27){g.passed=true;passed++;this.passedGates++;const target=g.center;const perfect=Math.abs(this.y-target)<=g.gap*.22;let points=1;if(perfect){this.combo=this.time-this.lastPerfect<=1.2?this.combo+1:1;this.lastPerfect=this.time;this.multiplier=Math.min(4,1+Math.floor(this.combo/3));this.focus=Math.min(100,this.focus+20);if(this.focus>=100&&this.shield===0){this.focus=0;this.shield=1;this.events.push({type:'shield-ready'});}points=2*this.multiplier;this.events.push({type:'perfect',combo:this.combo,multiplier:this.multiplier,points,x:this.x,y:this.y});}else{this.route='safe';this.events.push({type:'pass',points,x:this.x,y:this.y});}this.score+=points;this.events.push({type:'passed',points,perfect});if(g.kind==='bonus'&&g.items.length===2&&g.items.every(item=>item.collected)){g.bonusAwarded=true;this.score+=4;this.events.push({type:'bonus',points:4,x:this.x,y:this.y});}}}
+    if(!hit)for(const g of this.gates){if(!g.passed&&g.x+.56<this.x-.27){g.passed=true;passed++;this.passedGates++;const targets=this.currentTargets(g);const routeIndex=targets.reduce((best,_,i)=>Math.abs(this.y-targets[i])<Math.abs(this.y-targets[best])?i:best,0);const target=targets[routeIndex],routeGap=g.routeGaps?.[routeIndex]||g.gap;const perfect=Math.abs(this.y-target)<=routeGap*.22;const risky=g.kind==='choice'&&routeIndex===1;let points=risky?4:1;if(perfect){this.combo=this.time-this.lastPerfect<=1.2?this.combo+1:1;this.lastPerfect=this.time;this.multiplier=Math.min(4,1+Math.floor(this.combo/3));this.focus=Math.min(100,this.focus+20);if(this.focus>=100&&this.shield===0){this.focus=0;this.shield=1;this.events.push({type:'shield-ready'});}points=(risky?4:2)*this.multiplier;this.events.push({type:'perfect',combo:this.combo,multiplier:this.multiplier,points,x:this.x,y:this.y});}else{this.route=risky?'risky':'safe';this.events.push({type:'pass',points,x:this.x,y:this.y,route:this.route});}this.score+=points;this.events.push({type:'passed',points,perfect,route:risky?'risky':'safe'});if(g.kind==='bonus'&&g.items.length===2&&g.items.every(item=>item.collected)){g.bonusAwarded=true;this.score+=4;this.events.push({type:'bonus',points:4,x:this.x,y:this.y});}}}
     for(const g of this.gates)if(g.x<this.x-7){const nextX=Math.max(...this.gates.map(p=>p.x))+4.45;const nextCenter=this.nextCenter();Object.assign(g,this.makeGate(g.id,nextX,nextCenter));}
     if(this.runMode==='chapter'&&((Number.isFinite(this.rules.gateCount)&&this.passedGates>=this.rules.gateCount)||this.time>=(this.rules.duration||45))){this.completed=true;this.alive=false;this.events.push({type:'complete',gates:this.passedGates});}
     this.alive=!hit&&!this.completed; return {hit,passed,events:this.events.slice()};
@@ -194,18 +205,27 @@ function cap(){
 const gateMeshes=[];
 for(let i=0;i<6;i++){
   const root=new THREE.Group(),lower=mesh(colGeo,colMat,root),upper=mesh(colGeo,colMat,root),mid=mesh(colGeo,colMat,root),lowCap=cap(),upCap=cap();root.add(lowCap,upCap);
-  const ring=mesh(new THREE.TorusGeometry(.82,.065,8,18),0xf3d98d,root);
+  const ring=mesh(new THREE.TorusGeometry(.82,.065,8,18),0xf3d98d,root),routeRings=[mesh(new THREE.TorusGeometry(.58,.045,8,18),0xf3d98d,root),mesh(new THREE.TorusGeometry(.58,.045,8,18),0xf3d98d,root)];
   const itemMeshes=[0,1].map(()=>mesh(new THREE.SphereGeometry(.15,10,8),0xf6d276,root));
   upCap.rotation.z=Math.PI;
   const base=island(.85,false);base.position.y=-4.7;batch(base);root.add(base);scene.add(root);gateMeshes.push({root,lower,upper,lowCap,upCap});
-  gateMeshes[i].mid=mid;gateMeshes[i].ring=ring;gateMeshes[i].itemMeshes=itemMeshes;
+  gateMeshes[i].mid=mid;gateMeshes[i].ring=ring;gateMeshes[i].routeRings=routeRings;gateMeshes[i].itemMeshes=itemMeshes;
 }
 function poseGate(g,data){
   const center=data.center, gap=data.gap, bottom=center-gap, top=center+gap;
   g.root.position.x=data.x;g.root.position.y=0;
-  g.lower.visible=g.upper.visible=true;g.mid.visible=false;g.ring.visible=false;
-  g.lower.position.y=-6.7;g.lower.scale.y=Math.max(.01,bottom+6.7);g.upper.position.y=top;g.upper.scale.y=Math.max(.01,7.8-top);
-  g.lowCap.position.y=bottom;g.upCap.position.y=top;
+  g.lower.visible=g.upper.visible=true;g.mid.visible=false;g.ring.visible=false;g.routeRings.forEach(r=>r.visible=false);
+  if(data.kind==='choice'&&data.routeCenters?.length===2){
+    const low=data.routeCenters[0],high=data.routeCenters[1],lowGap=data.routeGaps?.[0]||.66,highGap=data.routeGaps?.[1]||.52;
+    const lowBottom=low-lowGap,lowTop=low+lowGap,highBottom=high-highGap,highTop=high+highGap;
+    g.lower.position.y=-6.7;g.lower.scale.y=Math.max(.01,lowBottom+6.7);g.upper.position.y=highTop;g.upper.scale.y=Math.max(.01,7.8-highTop);
+    g.mid.visible=true;g.mid.position.y=lowTop;g.mid.scale.y=Math.max(.01,highBottom-lowTop);
+    g.lowCap.position.y=lowBottom;g.upCap.position.y=highTop;
+    g.routeRings[0].visible=g.routeRings[1].visible=true;g.routeRings[0].position.y=low;g.routeRings[1].position.y=high;
+  }else{
+    g.lower.position.y=-6.7;g.lower.scale.y=Math.max(.01,bottom+6.7);g.upper.position.y=top;g.upper.scale.y=Math.max(.01,7.8-top);
+    g.lowCap.position.y=bottom;g.upCap.position.y=top;
+  }
   data.items.forEach((item,i)=>{const m=g.itemMeshes[i];if(!m)return;m.visible=!item.collected;m.position.set(0,item.y,.38);m.material=mat(item.type==='pollen'?0xf3ca4e:item.type==='leaf'?0x87a85d:0xf8e4a2,false);m.scale.setScalar(item.type==='leaf'?.8:item.type==='pollen'?1.15:1);});
   for(let i=data.items.length;i<g.itemMeshes.length;i++)g.itemMeshes[i].visible=false;
 }
@@ -243,12 +263,11 @@ const TASKS=[{label:'PERFECT 5 GATES',test:r=>r.perfect>=5},{label:'COLLECT GOLD
 // All story chapters are available from the first launch.
 let unlocks=CHAPTERS.length;
 const dailySeed=(()=>{const d=new Date();return d.getUTCFullYear()*10000+(d.getUTCMonth()+1)*100+d.getUTCDate();})();
-let best=0,dailyBest=0,muted=false,audio=null,oldBest=0,readyPhase=0,track=[],ghostTrack=[],runStats={perfect:0,pollen:0,seed:0,bonus:0,shieldUsed:false};
-try{const stored=Number(localStorage.getItem('mosswing.best'));best=Number.isFinite(stored)?Math.max(0,Math.floor(stored)):0;const daily=Number(localStorage.getItem('mosswing.dailyBest'));dailyBest=Number.isFinite(daily)?Math.max(0,Math.floor(daily)):0;const ghost=JSON.parse(localStorage.getItem('mosswing.ghost')||'null');if(Array.isArray(ghost))ghostTrack=ghost;muted=localStorage.getItem('mosswing.muted')==='true';}catch{}
+let best=0,dailyBest=0,muted=false,audio=null,oldBest=0,readyPhase=0,runStats={perfect:0,pollen:0,seed:0,bonus:0,shieldUsed:false};
+try{const stored=Number(localStorage.getItem('mosswing.best'));best=Number.isFinite(stored)?Math.max(0,Math.floor(stored)):0;const daily=Number(localStorage.getItem('mosswing.dailyBest'));dailyBest=Number.isFinite(daily)?Math.max(0,Math.floor(daily)):0;muted=localStorage.getItem('mosswing.muted')==='true';}catch{}
 const fmt=n=>String(n).padStart(2,'0');setText('best',fmt(best));
 function updateSound(){ const sound=$('sound');if(!sound)return;sound.classList.toggle('muted',muted);sound.setAttribute('aria-label',muted?'Enable sound':'Mute sound');sound.setAttribute('aria-pressed',String(muted)); }
 updateSound();
-const ghost=creature.clone();ghost.traverse(o=>{if(o.isMesh){o.material=o.material.clone();o.material.transparent=true;o.material.opacity=.18;o.material.depthWrite=false;}});ghost.visible=false;scene.add(ghost);
 function syncHud(){
   const collected=model.collected?.seed||0;
   setText('combo',`x${model.multiplier||1}`);
@@ -290,9 +309,9 @@ function setState(next){state=next;document.body.className=next;for(const[id,vis
 function start(){
   const selectedMode=document.querySelector('[data-run-mode].selected')?.dataset.runMode;
   if(selectedMode)runMode=selectedMode;
-  const chapter=CHAPTERS[selectedChapter],chosenSeed=runMode==='daily'?dailySeed:runMode==='story'?chapter.seed:Date.now()>>>0;
-  oldBest=runMode==='daily'?dailyBest:best;model.reset(-worldW*.23,{mode:runMode==='story'?'chapter':'endless',chapter:selectedChapter,seed:chosenSeed,pattern:runMode==='story'?chapter.physics.pattern:undefined});applyTheme(runMode==='story'?chapter:CHAPTER_CONFIGS.endless);
-  track=[];runStats={perfect:0,pollen:0,seed:0,bonus:0,shieldUsed:false};ghost.visible=ghostTrack.length>0;homeIsland.position.x=-worldW*.48-1;creature.position.set(model.x,model.y,0);creature.rotation.set(0,0,0);bodyPivot.rotation.set(0,0,0);deathAge=0;runAge=0;accumulator=0;previous=performance.now();$('score').textContent='0';syncHud();$('tap-hint').classList.add('visible');setState('playing');canvas.focus({preventScroll:true});flap();
+  const chapter=CHAPTERS[selectedChapter],chosenSeed=runMode==='daily'?dailySeed:(Date.now()^Math.floor(Math.random()*0xffffffff))>>>0;
+  oldBest=runMode==='daily'?dailyBest:best;model.reset(-worldW*.23,{mode:runMode==='story'?'chapter':'endless',chapter:selectedChapter,seed:chosenSeed,pattern:runMode==='story'?chapter.physics.pattern:undefined,randomizePattern:runMode!=='daily'});applyTheme(runMode==='story'?chapter:CHAPTER_CONFIGS.endless);
+  runStats={perfect:0,pollen:0,seed:0,bonus:0,shieldUsed:false};homeIsland.position.x=-worldW*.48-1;creature.position.set(model.x,model.y,0);creature.rotation.set(0,0,0);bodyPivot.rotation.set(0,0,0);deathAge=0;runAge=0;accumulator=0;previous=performance.now();$('score').textContent='0';syncHud();$('tap-hint').classList.add('visible');setState('playing');canvas.focus({preventScroll:true});flap();
 }
 function flap(){model.flap();wingKick=1;puff(3);note(420,760,.095,.035);}
 function act(){unlockAudio();if(state==='ready'||state==='over'&&deathAge>.85)start();else if(state==='playing')flap();else if(state==='paused')resume();}
@@ -300,8 +319,7 @@ function die(){setState('dying');deathAge=0;shake=reduced?0:.14;puff(16,true);no
 function finish(completed=false){
   const isDaily=runMode==='daily',currentBest=isDaily?dailyBest:best,newRecord=model.score>currentBest;
   if(isDaily)dailyBest=Math.max(dailyBest,model.score);else best=Math.max(best,model.score);
-  if(newRecord&&track.length){ghostTrack=track.slice(-1800);}
-  try{localStorage.setItem(isDaily?'mosswing.dailyBest':'mosswing.best',String(isDaily?dailyBest:best));if(newRecord&&track.length)localStorage.setItem('mosswing.ghost',JSON.stringify(ghostTrack));if(completed)localStorage.setItem('mosswing.chapter.'+selectedChapter,'done');}catch{}
+  try{localStorage.setItem(isDaily?'mosswing.dailyBest':'mosswing.best',String(isDaily?dailyBest:best));if(completed)localStorage.setItem('mosswing.chapter.'+selectedChapter,'done');}catch{}
   const task=TASKS[selectedChapter]||TASKS[0],taskDone=task.test(runStats);
   refreshChapterOptions();
   const shownBest=isDaily?dailyBest:best;$('best').textContent=fmt(shownBest);$('final-score').textContent=model.score;$('final-best').textContent=shownBest;$('result-title').textContent=completed?'Chapter complete':isDaily?'Daily flight':'A little further?';
@@ -333,7 +351,6 @@ function render(dt){
  if(state==='playing'){
    runAge+=dt;if(runAge>3)$('tap-hint').classList.remove('visible');
     accumulator+=dt;while(accumulator>=1/120&&state==='playing'){const result=model.step(1/120);accumulator-=1/120;
-      if(model.time%(.066)<.009)track.push({t:model.time,y:model.y});
       for(const event of result.events){
         if(event.type==='perfect'){runStats.perfect++;if(!reduced)$('score').animate([{transform:'scale(1.16)'},{transform:'scale(1)'}],{duration:160});note(880,1320,.12,.055);puff(5);}
         else if(event.type==='collect'){runStats[event.item]=(runStats[event.item]||0)+1;note(event.item==='pollen'?1040:event.item==='leaf'?740:620,event.item==='pollen'?1320:880,.1,.04);puff(event.item==='leaf'?8:4);}
@@ -346,7 +363,6 @@ function render(dt){
       syncHud();$('score').textContent=model.score;if(result.hit)die();
     }
     creature.position.set(model.x,model.y,0);
-    if(ghost.visible&&ghostTrack.length){const target=ghostTrack.reduce((a,b)=>Math.abs(b.t-model.time)<Math.abs(a.t-model.time)?b:a,ghostTrack[0]);ghost.position.set(model.x,target.y,0);}
  }else if(state==='ready'){
    readyPhase+=dt;creature.position.set(-worldW*.22,Math.sin(elapsed*1.7)*.12-.12,0);model.y=creature.position.y;
  }else if(state==='dying'){

@@ -18,6 +18,7 @@ class FlightModel {
     const chapterConfig=this.runMode==='chapter'?CHAPTERS[this.chapter]:CHAPTERS.endless;
     this.config=options.config||chapterConfig||{};this.rules={...FALLBACK_RULES,...(this.config.physics||{}),...(options.physics||{})};
     this.pattern=options.pattern||this.rules.pattern||FALLBACK_RULES.pattern;
+    this.randomPattern=options.randomizePattern===true;
     this.passedGates=0;
     this.gates=Array.from({length:6},(_,i)=>this.makeGate(i,x+5.9+i*4.45,i===0?.1:this.nextCenter()));
   }
@@ -25,14 +26,24 @@ class FlightModel {
   makeGate(index,x,center) {
     // The former split layout put a second pillar in the playable opening.
     // Keep old patterns compatible, but always use the regular wide opening.
-    const requestedKind=this.pattern[index%this.pattern.length]||'standard';
-    const kind=['standard','moving','pulse','wind','bonus'].includes(requestedKind)?requestedKind:'standard';
+    const roll=this.random();
+    let randomKind=index<2?'standard':roll<.48?'standard':roll<.64?'bonus':roll<.78?'moving':roll<.9?'choice':roll<.96?'wind':'pulse';
+    const previous=this.gates?.find(g=>g.id===((index-1+6)%6));
+    if(previous&&previous.kind===randomKind&&['choice','moving','wind','pulse'].includes(randomKind))randomKind='standard';
+    const requestedKind=this.randomPattern?randomKind:(this.pattern[index%this.pattern.length]||'standard');
+    const kind=['standard','moving','pulse','wind','bonus','choice'].includes(requestedKind)?requestedKind:'standard';
     const regularGap=this.rules.gapMin+this.random()*Math.max(0,this.rules.gapMax-this.rules.gapMin);
     const gap=kind==='bonus'?Math.max(this.rules.gapMax,this.rules.gapMin+.28):regularGap;
     const gate={id:index,kind,x,center,baseCenter:center,routeCenters:null,phase:this.random()*Math.PI*2,
       passed:false,scored:false,bonusAwarded:false,gap,baseGap:gap,
       wind:kind==='wind'?((this.random()-.5)*2.2):0,items:[]};
-    if(kind==='bonus'){
+    if(kind==='choice'){
+      center=Math.max(-.35,Math.min(.35,center)); gate.center=center;gate.baseCenter=center;
+      gate.gap=Math.max(1.72,regularGap); gate.baseGap=gate.gap;
+      gate.routeCenters=[center-1.2,center+1.2];gate.routeGaps=[1.05,.95];
+      gate.items.push({type:'seed',x,y:gate.routeCenters[0],routeIndex:0,collected:false});
+      gate.items.push({type:'pollen',x,y:gate.routeCenters[1],routeIndex:1,collected:false});
+    }else if(kind==='bonus'){
       gate.items.push({type:'seed',x,y:center-.42,offsetY:-.42,collected:false});
       gate.items.push({type:'pollen',x,y:center+.42,offsetY:.42,collected:false});
     }else gate.items.push({type:index%9===7?'leaf':index%4===2?'pollen':'seed',x,y:center,collected:false});
@@ -44,10 +55,10 @@ class FlightModel {
     else if(g.kind==='pulse')g.gap=Math.max(this.rules.pulseMin,g.baseGap-this.rules.pulseAmount*(.5+.5*Math.sin(t*2.1+g.phase)))+1e-6;
     else g.center=g.baseCenter;
     if(g.kind==='wind')g.center=g.baseCenter+Math.sin(t*.9+g.phase)*this.rules.moveAmplitude;
-    for(const item of g.items){item.x=g.x;item.y=g.center+(item.offsetY||0);}
+    for(const item of g.items){item.x=g.x;item.y=g.kind==='choice'?(g.routeCenters?.[item.routeIndex]??g.center):g.center+(item.offsetY||0);}
   }
-  currentTargets(g) { return [g.center]; }
-  isSafe(g,y) { return this.currentTargets(g).some(c=>Math.abs(y-c)<=Math.max(.05,g.gap-.27)); }
+  currentTargets(g) { return g.routeCenters||[g.center]; }
+  isSafe(g,y) { return this.currentTargets(g).some((c,i)=>Math.abs(y-c)<=Math.max(.05,(g.routeGaps?.[i]||g.gap)-.27)); }
   flap() { if(this.alive)this.vy=this.rules.flap; }
   step(dt) {
     if(!this.alive)return {hit:false,passed:0,events:[]};
@@ -72,7 +83,7 @@ class FlightModel {
         if(dx*dx+dy*dy<.27*.27){if(this.invulnerable<=0&&!boundaryHit){if(this.shield){this.shield=0;this.invulnerable=.35;this.events.push({type:'shield',x:this.x,y:this.y});}else hit=true;}}
       }
     }
-    if(!hit)for(const g of this.gates){if(!g.passed&&g.x+.56<this.x-.27){g.passed=true;passed++;this.passedGates++;const target=g.center;const perfect=Math.abs(this.y-target)<=g.gap*.22;let points=1;if(perfect){this.combo=this.time-this.lastPerfect<=1.2?this.combo+1:1;this.lastPerfect=this.time;this.multiplier=Math.min(4,1+Math.floor(this.combo/3));this.focus=Math.min(100,this.focus+20);if(this.focus>=100&&this.shield===0){this.focus=0;this.shield=1;this.events.push({type:'shield-ready'});}points=2*this.multiplier;this.events.push({type:'perfect',combo:this.combo,multiplier:this.multiplier,points,x:this.x,y:this.y});}else{this.route='safe';this.events.push({type:'pass',points,x:this.x,y:this.y});}this.score+=points;this.events.push({type:'passed',points,perfect});if(g.kind==='bonus'&&g.items.length===2&&g.items.every(item=>item.collected)){g.bonusAwarded=true;this.score+=4;this.events.push({type:'bonus',points:4,x:this.x,y:this.y});}}}
+    if(!hit)for(const g of this.gates){if(!g.passed&&g.x+.56<this.x-.27){g.passed=true;passed++;this.passedGates++;const targets=this.currentTargets(g);const routeIndex=targets.reduce((best,_,i)=>Math.abs(this.y-targets[i])<Math.abs(this.y-targets[best])?i:best,0);const target=targets[routeIndex],routeGap=g.routeGaps?.[routeIndex]||g.gap;const perfect=Math.abs(this.y-target)<=routeGap*.22;const risky=g.kind==='choice'&&routeIndex===1;let points=risky?4:1;if(perfect){this.combo=this.time-this.lastPerfect<=1.2?this.combo+1:1;this.lastPerfect=this.time;this.multiplier=Math.min(4,1+Math.floor(this.combo/3));this.focus=Math.min(100,this.focus+20);if(this.focus>=100&&this.shield===0){this.focus=0;this.shield=1;this.events.push({type:'shield-ready'});}points=(risky?4:2)*this.multiplier;this.events.push({type:'perfect',combo:this.combo,multiplier:this.multiplier,points,x:this.x,y:this.y});}else{this.route=risky?'risky':'safe';this.events.push({type:'pass',points,x:this.x,y:this.y,route:this.route});}this.score+=points;this.events.push({type:'passed',points,perfect,route:risky?'risky':'safe'});if(g.kind==='bonus'&&g.items.length===2&&g.items.every(item=>item.collected)){g.bonusAwarded=true;this.score+=4;this.events.push({type:'bonus',points:4,x:this.x,y:this.y});}}}
     for(const g of this.gates)if(g.x<this.x-7){const nextX=Math.max(...this.gates.map(p=>p.x))+4.45;const nextCenter=this.nextCenter();Object.assign(g,this.makeGate(g.id,nextX,nextCenter));}
     if(this.runMode==='chapter'&&((Number.isFinite(this.rules.gateCount)&&this.passedGates>=this.rules.gateCount)||this.time>=(this.rules.duration||45))){this.completed=true;this.alive=false;this.events.push({type:'complete',gates:this.passedGates});}
     this.alive=!hit&&!this.completed; return {hit,passed,events:this.events.slice()};
