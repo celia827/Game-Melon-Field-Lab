@@ -37,10 +37,11 @@ function overlap(a,b){
 export class World{
   constructor(onMerge=()=>{}){this.bodies=[];this.time=0;this.nextId=1;this.mode='fluid';this.tilt=0;this.gravityScale=1;this.onMerge=onMerge;this.lastMergeTime=-Infinity;this.cascadeDepth=0;}
   setMode(mode){if(MODES[mode])this.mode=mode;}
-  add(type,x,y,vx=0,vy=0,{fresh=true}={}){
+  add(type,x,y,vx=0,vy=0,{fresh=true,variant=null}={}){
     const r=TYPES[type].r;
     const p=Array.from({length:N},(_,i)=>{const angle=TAU*i/N,px=x+Math.cos(angle)*r,py=y+Math.sin(angle)*r;return{x:px,y:py,px:px-vx/120,py:py-vy/120};});
-    const body={id:this.nextId++,type,r,p,x,y,age:0,area:areaOf(p),danger:0,frozenUntil:0,freshUntil:fresh?this.time+1:-Infinity};
+    const variantUntil=variant==='foam'?this.time+3:variant==='sticky'?this.time+2.5:variant==='burst'?Infinity:-Infinity;
+    const body={id:this.nextId++,type,r,p,x,y,age:0,area:areaOf(p),danger:0,frozenUntil:0,freshUntil:fresh?this.time+1:-Infinity,variant,variantUntil};
     this.bodies.push(body);return body;
   }
   reset(seed=true){this.bodies=[];this.time=0;this.nextId=1;this.tilt=0;this.gravityScale=1;this.lastMergeTime=-Infinity;this.cascadeDepth=0;if(seed){this.add(4,91,BOUNDS.bottom-50,0,0,{fresh:false});this.add(3,191,BOUNDS.bottom-40,0,0,{fresh:false});this.add(5,305,BOUNDS.bottom-61,0,0,{fresh:false});this.add(2,413,BOUNDS.bottom-32,0,0,{fresh:false});this.add(1,255,BOUNDS.bottom-137,0,0,{fresh:false});}}
@@ -49,7 +50,8 @@ export class World{
   releaseVent(){for(const b of this.bodies){const highest=Math.min(...b.p.map(p=>p.y));if(highest<BOUNDS.line){for(const p of b.p)p.py=p.y-260/120;b.danger=0;}}}
   step(dt=1/120){
     const mode=MODES[this.mode];this.time+=dt;
-    for(const b of this.bodies){b.age+=dt;const frozen=b.frozenUntil>this.time;if(!frozen){for(const p of b.p){const vx=clamp((p.x-p.px)*mode.damping,-5,5),vy=clamp((p.y-p.py)*mode.damping,-5,5);p.px=p.x;p.py=p.y;p.x+=vx+this.tilt*760*dt*dt;p.y+=vy+980*this.gravityScale*dt*dt;}}}
+    for(const b of this.bodies){b.age+=dt;const frozen=b.frozenUntil>this.time;if(!frozen){const gravity=b.variant==='foam'&&b.variantUntil>this.time ? .55 : 1;for(const p of b.p){const vx=clamp((p.x-p.px)*mode.damping,-5,5),vy=clamp((p.y-p.py)*mode.damping,-5,5);p.px=p.x;p.py=p.y;p.x+=vx+this.tilt*760*dt*dt;p.y+=vy+980*this.gravityScale*gravity*dt*dt;}}}
+    for(const source of this.bodies){if(source.variant!=='sticky'||source.variantUntil<=this.time)continue;for(const target of this.bodies){if(target===source||target.frozenUntil>this.time||Math.hypot(target.x-source.x,target.y-source.y)>72)continue;const factor=Math.pow(.65,dt/2.5);for(const p of target.p){p.px=p.x-(p.x-p.px)*factor;p.py=p.y-(p.y-p.py)*factor;}}}
     const locked=new Set(),merges=[];
     for(let iteration=0;iteration<6;iteration++){
       for(const b of this.bodies){if(b.frozenUntil<=this.time){const edge=2*b.r*Math.sin(Math.PI/N),bend=2*b.r*Math.sin(2*Math.PI/N);for(let i=0;i<N;i++){distance(b.p[i],b.p[(i+1)%N],edge,mode.edge);distance(b.p[i],b.p[(i+2)%N],bend,mode.bend);if(i<N/2)distance(b.p[i],b.p[(i+N/2)%N],b.r*2,mode.shape);}pressure(b,mode.pressure);}center(b);}
@@ -62,7 +64,8 @@ export class World{
       }
       for(const b of this.bodies)for(const p of b.p){if(p.x<BOUNDS.left){p.x=BOUNDS.left;p.px=p.x+(p.x-p.px)*.08;}if(p.x>BOUNDS.right){p.x=BOUNDS.right;p.px=p.x+(p.x-p.px)*.08;}if(p.y>BOUNDS.bottom){p.y=BOUNDS.bottom;p.py=p.y;p.px+=(p.x-p.px)*.025;}}
     }
-    if(merges.length){this.bodies=this.bodies.filter(b=>!locked.has(b.id));for(const[a,b]of merges){const type=a.type+1,x=(a.x+b.x)/2,y=(a.y+b.y)/2,cascade=this.time-this.lastMergeTime<=.12;this.cascadeDepth=cascade?this.cascadeDepth+1:1;this.lastMergeTime=this.time;if(type<TYPES.length){const r=TYPES[type].r;this.add(type,clamp(x,BOUNDS.left+r,BOUNDS.right-r),Math.min(y,BOUNDS.bottom-r),0,0,{fresh:false});}this.onMerge({type:Math.min(type,8),x,y,points:2**(type+1),cleared:type>=TYPES.length,cascade,cascadeDepth:this.cascadeDepth,perfect:a.freshUntil>=this.time||b.freshUntil>=this.time});}}
+    if(merges.length){this.bodies=this.bodies.filter(b=>!locked.has(b.id));for(const[a,b]of merges){const type=a.type+1,x=(a.x+b.x)/2,y=(a.y+b.y)/2,cascade=this.time-this.lastMergeTime<=.12;this.cascadeDepth=cascade?this.cascadeDepth+1:1;this.lastMergeTime=this.time;const variant=a.variant==='burst'||b.variant==='burst'?'burst':a.variant||b.variant||null;if(type<TYPES.length){const r=TYPES[type].r;this.add(type,clamp(x,BOUNDS.left+r,BOUNDS.right-r),Math.min(y,BOUNDS.bottom-r),0,0,{fresh:false,variant:null});}if(variant==='burst')this.applyShockwave(x,y);this.onMerge({type:Math.min(type,8),x,y,points:2**(type+1),cleared:type>=TYPES.length,cascade,cascadeDepth:this.cascadeDepth,perfect:a.freshUntil>=this.time||b.freshUntil>=this.time,variant,shockwave:variant==='burst'});}}
     for(const b of this.bodies){center(b);const highest=Math.min(...b.p.map(p=>p.y));b.danger=b.age>1.8&&highest<BOUNDS.line?b.danger+dt*mode.dangerRate:Math.max(0,b.danger-dt*2);}
   }
+  applyShockwave(x,y){for(const body of this.bodies){if(body.frozenUntil>this.time)continue;const dx=body.x-x,dy=body.y-y,d=Math.hypot(dx,dy);if(d<.001||d>110)continue;const impulse=140*(1-d/110),nx=dx/d,ny=dy/d;for(const p of body.p){const vx=p.x-p.px,vy=p.y-p.py;p.px=p.x-(vx+nx*impulse/120);p.py=p.y-(vy+ny*impulse/120);}}}
 }

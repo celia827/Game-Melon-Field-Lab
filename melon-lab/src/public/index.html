@@ -17,19 +17,20 @@
 <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
 <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/></symbol>
 <symbol id="i-crown" viewBox="0 0 24 24"><path d="m3 7 4 3 5-6 5 6 4-3-2 11H5Z"/></symbol>
+<symbol id="i-book" viewBox="0 0 24 24"><path d="M5 4.5A2.5 2.5 0 017.5 2H20v17H7.5A2.5 2.5 0 015 16.5Zm0 0v12M8 6h8m-8 4h8"/></symbol>
 </defs></svg>
 <div class="app">
 <header>
 <a class="brand" href="./" aria-label="瓜体实验室首页"><span class="brand-melon"><svg viewBox="0 0 48 48"><path d="M4 10a21 21 0 0042 0Z" fill="#90b786"/><path d="M7 10a18 18 0 0036 0Z" fill="#eff5d8"/><path d="M10 10a15 15 0 0030 0Z" fill="#ff8d99"/><path d="m18 17 1 3m12-3-1 3m-5 5v2" stroke="#292b46" stroke-width="2" stroke-linecap="round"/></svg></span><span>瓜体实验室</span><small>MELON<br>LAB</small></a>
 <span class="tagline">半流体合成游戏</span>
-<nav aria-label="游戏控制"><button id="help" class="icon-button" aria-label="帮助"><svg><use href="#i-help"/></svg><span>帮助</span></button><button id="sound" class="icon-button" aria-label="声音" aria-pressed="false"><svg><use href="#i-sound"/></svg><span>声音</span></button><button id="pause" class="icon-button" aria-label="暂停"><svg><use href="#i-pause"/></svg><span>暂停</span></button><button id="restart" class="icon-button" aria-label="重开"><svg><use href="#i-reset"/></svg><span>重开</span></button></nav>
+<nav aria-label="游戏控制"><button id="help" class="icon-button" aria-label="帮助"><svg><use href="#i-help"/></svg><span>帮助</span></button><button id="codex" class="icon-button" aria-label="水果图鉴"><svg><use href="#i-book"/></svg><span>图鉴</span></button><button id="sound" class="icon-button" aria-label="声音" aria-pressed="false"><svg><use href="#i-sound"/></svg><span>声音</span></button><button id="pause" class="icon-button" aria-label="暂停"><svg><use href="#i-pause"/></svg><span>暂停</span></button><button id="restart" class="icon-button" aria-label="重开"><svg><use href="#i-reset"/></svg><span>重开</span></button></nav>
 </header>
 <main>
 <section class="intro" aria-label="游戏分数">
 <h1>让西瓜，<br>流动起来。</h1><span class="squiggle" aria-hidden="true"><svg viewBox="0 0 80 14"><path d="M2 10C8 0 12 0 19 7S29 14 36 7 47 0 54 7 65 14 78 5"/></svg></span>
 <p class="intro-copy">一点重力，一点弹性。<br>碰在一起，变成大西瓜。</p>
 <div class="scores"><div class="score-row"><svg class="crown"><use href="#i-crown"/></svg><span>当前分数</span><strong id="score">0</strong></div><div class="score-row"><svg><use href="#i-star"/></svg><span>最佳分数</span><strong id="best">0</strong></div></div>
-<div class="next"><span>投放队列</span><div class="next-queue"><div><small>当前</small><canvas id="next-fruit" width="144" height="144" aria-label="当前水果"></canvas></div><div><small>下一颗</small><canvas id="next-fruit-2" width="144" height="144" aria-label="下一颗水果"></canvas></div><div><small>之后</small><canvas id="next-fruit-3" width="144" height="144" aria-label="之后的水果"></canvas></div></div></div>
+<div class="next"><span>投放队列</span><div class="next-queue"><div><small>当前</small><canvas id="next-fruit" width="144" height="144" aria-label="当前水果"></canvas></div><div><small>下一颗</small><canvas id="next-fruit-2" width="144" height="144" aria-label="下一颗水果"></canvas></div><div><small>之后</small><canvas id="next-fruit-3" width="144" height="144" aria-label="之后的水果"></canvas></div></div><small class="variant-note">实验样本：泡沫 · 黏胶 · 爆汁</small></div>
 </section>
 <section class="game-area" aria-label="半流体果池">
 <div class="aim-tip" id="aim-tip">移动瞄准 · 点击投放</div>
@@ -40,11 +41,12 @@
 <h2>改变一点物理</h2>
 <div class="modes" role="group" aria-label="水果流动性"><button data-mode="jelly" aria-pressed="false">果冻</button><button data-mode="fluid" aria-pressed="true">半流体</button><button data-mode="juice" aria-pressed="false">果汁</button></div>
 <p id="mode-desc">柔软变形，连融窗口更长</p>
-<section class="mission" aria-label="当前实验委托"><div class="mission-heading"><h3>实验委托</h3><span id="mission-kind">进行中</span></div><p id="mission-text">从两个委托中选择一个开始</p><div class="mission-progress"><progress id="mission-progress" max="1" value="0"></progress><span id="mission-value">0 / 1</span></div><p id="mission-reward">完成奖励：+100 分 · +15 能量 · 实验瓶 +1</p><div class="mission-offers" id="mission-offers"></div></section>
+<section class="mission" aria-label="当前实验委托"><div class="mission-heading"><h3>实验委托</h3><span id="mission-kind">进行中</span></div><div class="mission-target" id="mission-target" hidden><canvas id="mission-target-canvas" width="68" height="68" aria-hidden="true"></canvas><div><strong id="mission-target-name">目标水果</strong><small id="mission-recipe"></small></div></div><p id="mission-text">从两个委托中选择一个开始</p><div class="mission-progress"><progress id="mission-progress" max="1" value="0"></progress><span id="mission-value">0 / 1</span></div><p id="mission-reward">完成奖励：+100 分 · +15 能量 · 实验瓶 +1</p><div class="mission-offers" id="mission-offers"></div></section>
 <section class="ability" aria-label="实验能力"><div class="ability-heading"><span>实验瓶</span><strong id="lab-charge">0 / 3</strong></div><div class="ability-buttons"><button class="ability-button" id="gravity-button" disabled>减重剂 <small id="gravity-status">充能中</small></button><button class="ability-button" id="freeze-button" disabled>定型剂 <small id="freeze-status">充能中</small></button></div></section>
 <button class="stir" id="stir"><svg><use href="#i-stir"/></svg>搅动果池</button><p class="energy-cost">消耗 30 能量</p>
 <button class="vent" id="vent" hidden>紧急排气 <small>消耗 40 能量 · 本局一次</small></button>
 <div class="energy-row"><label for="energy">能量</label><progress id="energy" max="100" value="100">100</progress><span><b id="energy-value">100</b> / 100</span></div>
+<div class="heat-row" id="heat-row" aria-label="实验热度"><label for="heat">热度</label><progress id="heat" max="100" value="0">0</progress><span id="heat-value">0 / 100</span></div>
 <div class="rules"><p><span class="rule-bubbles" aria-hidden="true"><i></i><i></i></span>同类相遇，融合升级</p><p><svg aria-hidden="true"><use href="#i-stir"/></svg>挤压变形，填满缝隙</p><p><span class="rule-line" aria-hidden="true"></span>别让水果越过虚线</p></div>
 </aside>
 </main>
