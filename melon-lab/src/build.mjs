@@ -12,6 +12,7 @@ const physics=await readFile(new URL('./public/physics.js',root),'utf8');
 const game=await readFile(new URL('./public/game.js',root),'utf8');
 const fruits=(await readFile(new URL('./public/fruits.png',root))).toString('base64');
 const inlinePhysics=physics.replace(/^export /gm,'');
-const inlineGame=game.replace("import {World,TYPES,MODES,BOUNDS} from './physics.js';",`const {World,TYPES,MODES,BOUNDS}=(()=>{${inlinePhysics} return {World,TYPES,MODES,BOUNDS};})();`);
+const inlineExports='World,TYPES,MODES,BOUNDS,LaunchWorld,LAUNCH_BOUNDS,LAUNCH_TRAITS,LAUNCH_LEVELS,LAUNCH_CHALLENGE,validateLaunchLevel';
+const inlineGame=game.replace(/import\s+\{[^}]+\}\s+from\s+'\.\/physics\.js';/,`const {${inlineExports}}=(()=>{${inlinePhysics} return {${inlineExports}};})();`);
 const standalone=html.replace('<link rel="stylesheet" href="style.css">',`<style>${css}</style>`).replace('<script type="module" src="game.js"></script>',`<script>${inlineGame}</script>`).replaceAll('fruits.png',`data:image/png;base64,${fruits}`);
 await writeFile(new URL('../瓜体实验室.html',root),standalone);
