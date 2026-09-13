@@ -253,17 +253,25 @@ const particleCount=140,particleData=[],particlePositions=new Float32Array(parti
 const particleGeo=new THREE.BufferGeometry();particleGeo.setAttribute('position',new THREE.BufferAttribute(particlePositions,3));particleGeo.setAttribute('color',new THREE.BufferAttribute(particleColors,3));
 const particleMat=new THREE.PointsMaterial({size:.065,vertexColors:true,transparent:true,opacity:.7,depthWrite:false,sizeAttenuation:true});const particles=new THREE.Points(particleGeo,particleMat);scene.add(particles);
 for(let i=0;i<particleCount;i++){particleData.push({x:range(-18,18),y:range(-6,6),z:range(-10,3),life:1,vx:-range(.1,.3),vy:range(.02,.1),burst:false,enabled:true});const c=new THREE.Color(i%3?0xffedbc:0xbac985);particleColors.set([c.r,c.g,c.b],i*3);}
+function setFlightPresentationVisible(visible){
+  scenery.forEach(item=>{item.g.visible=visible;});
+  sceneDecor.forEach(item=>{item.group.visible=false;});
+  [homeIsland,sun,halo,creature,particles].forEach(item=>{item.visible=visible;});
+  gateMeshes.forEach(item=>{item.root.visible=visible;});
+  if(visible)applyTheme(activeTheme);
+}
 let burstCursor=0;
 function puff(count,impact=false){if(reduced)return;for(let i=0;i<count;i++){const p=particleData[burstCursor++%18];p.x=creature.position.x-.25;p.y=creature.position.y;p.z=.35;p.vx=impact?range(-2.8,2.8):range(-2,-.5);p.vy=impact?range(-2.5,2.5):range(-.7,.7);p.life=impact?.75:.43;p.burst=true;}}
 
 const model=new FlightModel();let state='ready',worldW=16,worldH=11,elapsed=0,wingKick=0,deathAge=0,shake=0,runAge=0,previous=0,accumulator=0;
 const CHAPTERS=CHAPTER_CONFIGS.length?CHAPTER_CONFIGS:[{name:'浮岛花园',seed:1101,physics:{pattern:['standard']}}];
-let runMode='story',selectedChapter=0;
+let runMode='story',selectedChapter=0,activeGameFamily='flight';
 const TASKS=[{label:'PERFECT 5 GATES',test:r=>r.perfect>=5},{label:'COLLECT GOLDEN POLLEN',test:r=>r.pollen>=1},{label:'GATHER 10 SEEDS',test:r=>r.seed>=10},{label:'SURVIVE WITH A SHIELD',test:r=>r.shieldUsed}];
 // All story chapters are available from the first launch.
 let unlocks=CHAPTERS.length;
 const dailySeed=(()=>{const d=new Date();return d.getUTCFullYear()*10000+(d.getUTCMonth()+1)*100+d.getUTCDate();})();
 let best=0,dailyBest=0,muted=false,audio=null,oldBest=0,readyPhase=0,runStats={perfect:0,pollen:0,seed:0,bonus:0,shieldUsed:false};
+const gardenAudioDebug={cueCount:0,lastCue:null};
 try{const stored=Number(localStorage.getItem('mosswing.best'));best=Number.isFinite(stored)?Math.max(0,Math.floor(stored)):0;const daily=Number(localStorage.getItem('mosswing.dailyBest'));dailyBest=Number.isFinite(daily)?Math.max(0,Math.floor(daily)):0;muted=localStorage.getItem('mosswing.muted')==='true';}catch{}
 const fmt=n=>String(n).padStart(2,'0');setText('best',fmt(best));
 function updateSound(){ const sound=$('sound');if(!sound)return;sound.classList.toggle('muted',muted);sound.setAttribute('aria-label',muted?'Enable sound':'Mute sound');sound.setAttribute('aria-pressed',String(muted)); }
@@ -294,7 +302,21 @@ function refreshChapterOptions(){
 }
 function selectChapter(index){if(!Number.isInteger(index)||index<0||index>=CHAPTERS.length||index>=unlocks)return;selectedChapter=index;refreshChapterOptions();syncHud();closeChapterMenu();}
 function selectMode(mode){runMode=mode;closeChapterMenu();document.querySelectorAll('[data-run-mode]').forEach(b=>b.classList.toggle('selected',b.dataset.runMode===mode));const select=$('chapter-select'),button=$('chapter-select-button');if(select)select.disabled=mode!=='story';if(button)button.disabled=mode!=='story';refreshChapterOptions();setText('best',fmt(mode==='daily'?dailyBest:best));syncHud();}
+function selectGameFamily(family){
+  if(!['flight','garden'].includes(family)||state!=='ready')return;
+  activeGameFamily=family;
+  document.body.classList.toggle('game-family-garden',family==='garden');
+  document.body.classList.toggle('game-family-flight',family==='flight');
+  document.querySelectorAll('[data-game-family]').forEach(button=>{
+    const selected=button.dataset.gameFamily===family;
+    button.classList.toggle('selected',selected);
+    button.setAttribute('aria-pressed',String(selected));
+  });
+  $('start').childNodes[0].nodeValue=family==='garden'?'开始造境':'开始飞行';
+  canvas.setAttribute('aria-label',family==='garden'?'浮岛造境。选择心芽和植物，在5乘5棋盘上规划花园。':'Mosswing. Tap, click, or press Space to flap through the gaps. One collision ends your flight.');
+}
 document.querySelectorAll('[data-run-mode]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();selectMode(e.currentTarget.dataset.runMode);}));
+document.querySelectorAll('[data-game-family]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();selectGameFamily(e.currentTarget.dataset.gameFamily);}));
 $('chapter-select-button').addEventListener('click',e=>{e.stopPropagation();if(e.currentTarget.disabled)return;const wrap=e.currentTarget.parentElement,open=!wrap.classList.contains('open');wrap.classList.toggle('open',open);e.currentTarget.setAttribute('aria-expanded',String(open));});
 document.querySelectorAll('[data-chapter-option]').forEach(option=>option.addEventListener('click',e=>{e.stopPropagation();selectChapter(Number(e.currentTarget.dataset.chapterOption));}));
 document.addEventListener('click',e=>{if(!e.target.closest('.chapter-select-wrap'))closeChapterMenu();});
@@ -305,7 +327,34 @@ function note(freq,end,duration,volume=.05,delay=0,type='sine'){
  if(muted||!audio||audio.state!=='running')return;
  const t=audio.currentTime+delay,osc=audio.createOscillator(),gain=audio.createGain();osc.type=type;osc.frequency.setValueAtTime(freq,t);osc.frequency.exponentialRampToValueAtTime(end,t+duration);gain.gain.setValueAtTime(.001,t);gain.gain.exponentialRampToValueAtTime(volume,t+.015);gain.gain.exponentialRampToValueAtTime(.001,t+duration);osc.connect(gain);gain.connect(audio.destination);osc.start(t);osc.stop(t+duration+.01);osc.onended=()=>{osc.disconnect();gain.disconnect();};
 }
-function setState(next){state=next;document.body.className=next;for(const[id,visible]of[['gameover',next==='over'],['paused',next==='paused']]){$(id).classList.toggle('visible',visible);$(id).setAttribute('aria-hidden',String(!visible));$(id).inert=!visible;}$('intro').inert=next!=='ready';}
+function playGardenCue(cue,detail={}){
+ if(muted||!audio||audio.state!=='running')return;
+ const patterns={
+  plant:[[392,523,.09,.025,0,'triangle'],[659,784,.08,.018,.055,'sine']],
+  arrange:[[330,440,.07,.018,0,'triangle']],
+  undo:[[523,349,.1,.022,0,'sine']],
+  preview:[[440,660,.12,.025,0,'sine'],[660,880,.12,.02,.08,'sine']],
+  light:[[880,1320,.11,.025,0,'sine']],
+  water:[[392,587,.14,.028,0,'triangle']],
+  bloom:[[659,988,.15,.034,0,'sine'],[880,1320,.14,.022,.045,'sine']],
+  pollination:[[740,1040,.08,.024,0,'sine']],
+  chain:[[523,784,.16,.03,0,'triangle'],[784,1175,.18,.025,.08,'sine']],
+  blight:[[180,118,.18,.035,0,'sawtooth']],
+  clean:[[220,520,.14,.028,0,'triangle'],[620,880,.1,.018,.08,'sine']],
+  heart:[[210,92,.24,.045,0,'triangle']],
+  choice:[[523,698,.1,.023,0,'sine']],
+  unlock:[[523,784,.14,.03,0,'triangle'],[784,1175,.18,.028,.08,'sine']],
+  tutorial:[[587,880,.14,.025,0,'sine'],[880,1318,.18,.025,.1,'sine']],
+  victory:[[523,659,.16,.035,0,'triangle'],[659,880,.18,.035,.12,'triangle'],[880,1318,.24,.04,.25,'sine']],
+  defeat:[[330,220,.18,.035,0,'triangle'],[220,110,.28,.04,.14,'sine']]
+ };
+ const pattern=patterns[cue];
+ if(!pattern)return;
+ gardenAudioDebug.cueCount+=1;gardenAudioDebug.lastCue=cue;
+ const chainOffset=cue==='pollination'?Math.min(260,Math.max(0,Number(detail.index)||0)*28):0;
+ pattern.forEach(([from,to,duration,volume,delay,type])=>note(from+chainOffset,to+chainOffset,duration,volume,delay,type));
+}
+function setState(next){state=next;document.body.classList.remove('ready','playing','paused','dying','over');document.body.classList.add(next);for(const[id,visible]of[['gameover',next==='over'],['paused',next==='paused']]){$(id).classList.toggle('visible',visible);$(id).setAttribute('aria-hidden',String(!visible));$(id).inert=!visible;}$('intro').inert=next!=='ready';}
 function start(){
   const selectedMode=document.querySelector('[data-run-mode].selected')?.dataset.runMode;
   if(selectedMode)runMode=selectedMode;
@@ -328,12 +377,12 @@ function finish(completed=false){
 }
 function pause(){if(state!=='playing')return;setState('paused');audio?.suspend().catch(()=>{});$('resume').focus({preventScroll:true});}
 function resume(){if(state!=='paused')return;unlockAudio();setState('playing');previous=performance.now();accumulator=0;canvas.focus({preventScroll:true});flap();}
-document.addEventListener('pointerdown',e=>{if(e.target.closest('button,select,option,label,.run-modes,.chapter-picker')||e.button!==0||!e.isPrimary)return;e.preventDefault();act();});
-$('start').onclick=act;$('retry').onclick=act;$('resume').onclick=resume;$('pause').onclick=()=>state==='paused'?resume():pause();
+document.addEventListener('pointerdown',e=>{if(activeGameFamily!=='flight'||e.target.closest('button,select,option,label,.run-modes,.chapter-picker')||e.button!==0||!e.isPrimary)return;e.preventDefault();act();});
+$('start').onclick=()=>{if(activeGameFamily==='garden'){unlockAudio();$('intro').inert=true;globalThis.GardenMode.enter();}else act();};$('retry').onclick=act;$('resume').onclick=resume;$('pause').onclick=()=>state==='paused'?resume():pause();
 $('sound').onclick=()=>{muted=!muted;unlockAudio();updateSound();try{localStorage.setItem('mosswing.muted',String(muted));}catch{};if(!muted)note(660,880,.14,.03);};
-document.addEventListener('keydown',e=>{if(['Space','ArrowUp','KeyW'].includes(e.code)){if(e.target.closest('button')&&e.code==='Space')return;e.preventDefault();if(!e.repeat)act();}else if(e.code==='Escape'||e.code==='KeyP'){e.preventDefault();state==='paused'?resume():pause();}else if(e.code==='KeyM'&&!e.repeat){$('sound').click();}});
-document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();previous=performance.now();});
-window.addEventListener('blur',pause);
+document.addEventListener('keydown',e=>{if(activeGameFamily!=='flight')return;if(['Space','ArrowUp','KeyW'].includes(e.code)){if(e.target.closest('button')&&e.code==='Space')return;e.preventDefault();if(!e.repeat)act();}else if(e.code==='Escape'||e.code==='KeyP'){e.preventDefault();state==='paused'?resume():pause();}else if(e.code==='KeyM'&&!e.repeat){$('sound').click();}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){if(activeGameFamily==='garden')globalThis.GardenMode.pause();else pause();}previous=performance.now();});
+window.addEventListener('blur',()=>{if(activeGameFamily==='garden')globalThis.GardenMode.pause();else pause();});
 canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();pause();$('error').style.display='grid';$('error').querySelector('p').textContent='The garden lost its canvas. Reload to take flight again.';});
 $('reload').onclick=()=>location.reload();
 function resize(){
@@ -343,10 +392,18 @@ function resize(){
  const x=-worldW*.23,dx=x-oldX;model.x=x;model.gates.forEach(g=>g.x+=dx);
  sun.position.x=worldW*.4;sun.position.y=worldH*.31-5.88;halo.position.copy(sun.position);
  homeIsland.position.x=-worldW*.48-1;homeIsland.position.y=-3.05;
- if(state==='playing')pause();
+ if(activeGameFamily==='flight'&&state==='playing')pause();
+ globalThis.GardenMode?.resize?.(worldW,worldH);
 }
-window.addEventListener('resize',resize);resize();applyTheme(CHAPTERS[0]);setState('ready');
+window.addEventListener('resize',resize);resize();applyTheme(CHAPTERS[0]);setState('ready');selectGameFamily('flight');
+globalThis.GardenMode.mount({scene,camera,renderer,setFlightPresentationVisible,unlockAudio,playSound:playGardenCue,pauseAudio:()=>audio?.suspend().catch(()=>{}),resumeAudio:unlockAudio,isMuted:()=>muted,getAudioDebug:()=>({...gardenAudioDebug,state:audio?.state||'unavailable'}),onExit:()=>{activeGameFamily='garden';$('intro').inert=false;setState('ready');selectGameFamily('garden');canvas.setAttribute('aria-label','浮岛造境。选择心芽和植物，在5乘5棋盘上规划花园。');}});
+globalThis.GardenMode.resize(worldW,worldH);
 function render(dt){
+ if(activeGameFamily==='garden'){
+   globalThis.GardenMode.update(dt);
+   renderer.render(scene,camera);
+   return;
+ }
  if(state!=='paused')elapsed+=dt;
  if(state==='playing'){
    runAge+=dt;if(runAge>3)$('tap-hint').classList.remove('visible');
