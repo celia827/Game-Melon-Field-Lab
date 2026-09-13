@@ -30,3 +30,4 @@ Remaster the classic "tap-to-flap" game — the one where you tap to keep a smal
 - 花园规则与平衡回归：`node mosswing/src/garden-check.cjs`
 - 原飞行回归：`node mosswing/src/check.cjs`
 - 完整执行与验收记录：`mosswing/src/design/mode-floating-garden-execution.md`
+- “织风巡游”2.0改造执行基线：`mosswing/src/design/mode-floating-garden-v2-execution.md`
