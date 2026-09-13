@@ -1280,7 +1280,7 @@ M1.1 结论为：**已完成并通过模型验收。** 用户随后已明确批�
 8. 桌面视口和 `390×844` 视口都已检查；窄屏中构筑面板可滚动，5×5棋盘、暂停、规划操作、手牌横向滚动区和返回入口无主要遮挡。
 9. 连续执行20次 `exit()`/`enter()` 后，监听器数量仍为13，棋盘仍为25格，顶层玩法入口和暂停按钮均仍为1份，未发现重复挂载。
 
-最终视觉证据保存于 `output/playwright/m2-desktop-board-final.png`、`output/playwright/m2-mobile-board-final.png` 和 `output/playwright/m2-mobile-setup.png`。
+本阶段浏览器验收结果保留为文字记录；原验证截图已在发布后的测试数据清理中删除。
 
 唯一控制台警告是项目现有 Three.js r160 经典脚本包的弃用提示，不是 M2 运行错误，本阶段不扩大范围升级渲染依赖。
 
@@ -1325,13 +1325,7 @@ M2 当时只交付了真实入口、构筑选择、基础规划棋盘、存档�
 7. 390×844 竖屏的顶栏、棋盘、预演和手牌/确认四段无重叠且同屏可见；844×390 横屏的三列块全部在视口内，无交叉和内容溢出；1536×1024 日报卡片完整在视口内。
 8. 返回飞行模式后，完成“开始→拍翼→碰撞失败→再来一次”；花园 UI 在飞行期间保持隐藏。
 
-最终视觉证据保存于：
-
-- output/playwright/m3-desktop-preview-chain6.png
-- output/playwright/m3-desktop-report-final.png
-- output/playwright/m3-mobile-preview-chain6-final.png
-- output/playwright/m3-mobile-report.png
-- output/playwright/m3-landscape-preview-chain6-final.png
+本阶段浏览器验收结果保留为文字记录；原验证截图已在发布后的测试数据清理中删除。
 
 唯一控制台警告是项目现有 Three.js r160 经典脚本包的弃用提示，不是 M3 运行错误；本阶段不扩大范围升级渲染依赖。
 
@@ -1390,12 +1384,9 @@ M3 完成的是单日闭环。在 M3 冻结快照中，日报的继续按钮尚�
 
 四种规定尺寸均针对真实构建产物检查，页面宽高与视口一致，无横向或纵向页面溢出；棋盘、手牌、天气、操作按钮和结果/选择层均可见：
 
-- `390×844`：`output/playwright/m4-mobile-planning.png`
-- `844×390`：`output/playwright/m4-landscape-planning.png`
-- `908×932`：`output/playwright/m4-908x932-planning.png`
-- `1536×1024`：`output/playwright/m4-1536x1024-planning.png`
-- 12天结果页：`output/playwright/m4-complete-run-result.png`
-- 第4天祝福三选一：`output/playwright/m4-reward-choice.png`
+- `390×844`、`844×390`、`908×932` 和 `1536×1024` 均通过布局验收。
+- 12天结果页和第4天祝福三选一已通过视觉验收。
+- 原验证截图已在发布后的测试数据清理中删除。
 
 ### 27.6 证据边界与下一批准点
 
@@ -1446,18 +1437,7 @@ M4 已完成完整局、压力系统、局内选择、四种终局原因、重�
 
 浏览器验收过程中发现并修复4个真实问题：露杯草默认向右导致教学跳过旋转；教学内层 `header` 被全局页眉选择器污染，导致完成按钮无法点击；新解锁植物在构筑页仍显示“待解锁”副标题；图鉴重新打开时保留上次滚动位置。四项均已修复并在重建产物中复验。
 
-视觉证据保存于：
-
-- `output/playwright/m5-compendium-fresh.png`
-- `output/playwright/m5-tutorial-step2.png`
-- `output/playwright/m5-tutorial-preview.png`
-- `output/playwright/m5-tutorial-complete.png`
-- `output/playwright/m5-result-reward.png`
-- `output/playwright/m5-compendium-unlocked.png`
-- `output/playwright/m5-mobile-tutorial.png`
-- `output/playwright/m5-landscape-tutorial.png`
-- `output/playwright/m5-mobile-compendium.png`
-- `output/playwright/m5-landscape-compendium.png`
+本阶段浏览器验收结果保留为文字记录；原验证截图已在发布后的测试数据清理中删除。
 
 唯一控制台警告是项目现有 Three.js r160 经典脚本的弃用提示；没有 M5 运行错误。
 
@@ -1511,11 +1491,11 @@ M5 的首局教学、全图鉴、记忆种子、固定解锁、首次任务奖�
 
 ### 29.5 响应式、性能与压力证据
 
-- `390×844`：无横向溢出，棋盘宽 `321px`；`output/playwright/m6-390x844-planning.png`。
-- `844×390`：无横向溢出，棋盘宽 `250px`；`output/playwright/m6-844x390-planning.png`。
-- `908×932`：无横向溢出，棋盘宽 `520px`；`output/playwright/m6-908x932-planning.png`。
-- `1536×1024`：无横向溢出，棋盘为 `520×520px`，侧栏、棋盘和底栏交叠面积均为 `0`；`output/playwright/m6-1536x1024-planning.png`。
-- 完整胜利结果：`output/playwright/m6-complete-run-result.png`；8种植物与月心同屏视觉校验：`output/playwright/m6-eight-plants-moon-heart.png`。
+- `390×844`：无横向溢出，棋盘宽 `321px`。
+- `844×390`：无横向溢出，棋盘宽 `250px`。
+- `908×932`：无横向溢出，棋盘宽 `520px`。
+- `1536×1024`：无横向溢出，棋盘为 `520×520px`，侧栏、棋盘和底栏交叠面积均为 `0`。
+- 完整胜利结果以及8种植物与月心同屏觉校验均通过；原验证截图已在发布后的测试数据清理中删除。
 - 前台连续采样120帧的平均帧间隔为 `16.67ms`，估算 `60 FPS`，最大单帧间隔未触发运行错误。
 - 连续执行20次 `enter/exit` 后，40次生命周期转换全部正确，监听器计数始终为 `34`，Three.js 花园视图已隐藏，花园根节点无残留显示。
 
@@ -1559,9 +1539,19 @@ M0～M6 共7个阶段现已全部实现。M6 已完成最终视觉、音频、�
 ### 31.3 验证
 
 - WebKit `1466×943`：标题、玩法卡片、子模式、章节、主按钮和提示语相邻排列，交叠项为 `0`。
-- WebKit `390×844` 和 `844×390`：所有首页控件均在视口内；对应截图为 `output/playwright/home-layout-fixed-mobile.png` 和 `output/playwright/home-layout-fixed-landscape.png`。
-- 浮岛造境首页：飞行子选项正确隐藏，花园摘要和“开始造境”无交叠；截图为 `output/playwright/home-layout-fixed-garden.png`。
+- WebKit `390×844` 和 `844×390`：所有首页控件均在视口内。
+- 浮岛造境首页：飞行子选项正确隐藏，花园摘要和“开始造境”无交叠。
+- 原验证截图已在发布后的测试数据清理中删除。
 - 浏览器控制台为 `0 errors`；仅保留已知 Three.js r160 弃用警告。
 - 全量花园模型/存档/平衡、原飞行物理和构建回归通过。最终成品为 `966,813 bytes`，SHA-256 为 `3aadffba872ddae488fe86aaab5b1e618529d3e6ac4d30572bedbc0c1bafde49`。
 
 **热修复结论**：首页控件的交叠排版问题已修复，v1.0.1 可作为新的本地发布版本。
+
+---
+
+## 32. 发布后测试数据清理记录
+
+- 根据用户要求，删除 `output/playwright/` 中35个已跟踪的浏览器验收截图。
+- 删除 `.playwright-cli/` 中200个已忽略的临时页面快照和控制台日志，并删除 `output/.DS_Store`。
+- 共清理约 `12.1 MB`测试生成物。保留 `garden-check.cjs`、`check.cjs` 和 `physics.cjs` 回归测试脚本，以及源码、正式成品、校验和文字验收记录。
+- 个人浏览器内的正式玩家存档不在本次清理范围内。
